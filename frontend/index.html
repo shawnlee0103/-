@@ -358,9 +358,11 @@ async function callBackend(base64, mediaType, question) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ image_base64: base64, media_type: mediaType, question })
   });
-  if (!response.ok) {
+    if (!response.ok) {
     const errData = await response.json().catch(() => ({}));
-    throw new Error(errData.detail || '요청 실패');
+    const error = new Error(errData.detail || '요청 실패');
+    error.status = response.status;
+    throw error;
   }
   return response.json();
 }
@@ -422,9 +424,13 @@ async function runAnalysis(base64, mediaType, question) {
     const ttsText = result.tts_text || steps.map(s => s.text).join(' ');
     showResult(screenType, steps, ttsText);
     // 히스토리는 백엔드 /api/analyze 호출 시 서버 DB에 자동 저장됩니다.
-  } catch (err) {
+   } catch (err) {
     showSubpage('intro');
-    errorBox.textContent = '문제가 발생했어요. 잠시 후 다시 시도해주세요.';
+    if (err.status === 429) {
+      errorBox.textContent = '지금 이용자가 많아 붐비고 있어요. 1분 정도 후 다시 눌러주세요.';
+    } else {
+      errorBox.textContent = '문제가 발생했어요. 잠시 후 다시 시도해주세요.';
+    }
     errorBox.style.display = 'block';
   }
 }

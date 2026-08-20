@@ -10,7 +10,7 @@ Gemini API 무료 티어를 사용해서 **비용 0원**으로 실시간 AI 분�
 ```
  
 ---
-
+  
 ## 1단계. Gemini API 키 발급받기 (무료)
 
 1. https://aistudio.google.com/apikey 접속 → 구글 계정으로 로그인

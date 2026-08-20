@@ -151,9 +151,11 @@ async def analyze_screen(req: AnalyzeRequest):
             continue
         else:
             break
-
     if resp is None or resp.status_code != 200:
-        raise HTTPException(status_code=502, detail=f"AI 호출 실패: {last_error_text}")
+        is_busy = resp is not None and resp.status_code == 429
+        status = 429 if is_busy else 502
+        detail = "지금 이용자가 많아 잠시 처리 못했어요." if is_busy else f"AI 호출 실패: {last_error_text}"
+        raise HTTPException(status_code=status, detail=detail)
 
     data = resp.json()
     try:

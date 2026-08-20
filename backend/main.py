@@ -119,27 +119,41 @@ async def analyze_screen(req: AnalyzeRequest):
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        resp = await client.post(
-            url,
-            headers={"content-type": "application/json"},
-            json={
-                "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
-                "contents": [
-                    {
-                        "role": "user",
-                        "parts": [
-                            {"inline_data": {"mime_type": req.media_type, "data": req.image_base64}},
-                            {"text": req.question},
-                        ],
-                    }
-                ],
-                "generationConfig": {"responseMimeType": "application/json"},
-            },
-        )
+        import asyncio
 
-    if resp.status_code != 200:
-        raise HTTPException(status_code=502, detail=f"AI 호출 실패: {resp.text[:300]}")
+    resp = None
+    last_error_text = ""
+    for attempt in range(3):
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(
+                url,
+                headers={"content-type": "application/json"},
+                json={
+                    "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+                    "contents": [
+                        {
+                            "role": "user",
+                            "parts": [
+                                {"inline_data": {"mime_type": req.media_type, "data": req.image_base64}},
+                                {"text": req.question},
+                            ],
+                        }
+                    ],
+                    "generationConfig": {"responseMimeType": "application/json"},
+                },
+            )
+        if resp.status_code == 200:
+            break
+        last_error_text = resp.text[:500]
+        print(f"[Gemini 재시도 {attempt+1}/3] status={resp.status_code} body={last_error_text}")
+        if resp.status_code in (429, 500, 502, 503):
+            await asyncio.sleep(2 * (attempt + 1))
+            continue
+        else:
+            break
+
+    if resp is None or resp.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"AI 호출 실패: {last_error_text}")
 
     data = resp.json()
     try:

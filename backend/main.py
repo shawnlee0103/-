@@ -1,18 +1,17 @@
 """
 짚어드림 - 백엔드 서버 (FastAPI + Gemini API)
 =============================================
-Anthropic API 대신 Google Gemini API(무료 티어)를 사용합니다.
-
 할 일:
-  1. https://aistudio.google.com/apikey 에서 무료 API 키 발급 (신용카드 등록 불필요)
+  1. https://aistudio.google.com/apikey 에서 무료 API 키 발급
   2. .env 파일에 GEMINI_API_KEY 를 넣는다 (.env.example 참고)
   3. pip install -r requirements.txt
-  4. uvicorn main:app --reload   (로컬 테스트, http://localhost:8000)
-  5. Render 등에 배포할 때는 .env 대신 대시보드의 Environment Variables에 등록한다
+  4. uvicorn main:app --reload
+  5. Render에 배포할 때는 대시보드의 Environment Variables에 등록
 """
 
 import os
 import json
+import asyncio
 import sqlite3
 from datetime import datetime
 from contextlib import contextmanager
@@ -26,7 +25,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "*")
 DB_PATH = os.getenv("DB_PATH", "history.db")
 
@@ -119,10 +118,9 @@ async def analyze_screen(req: AnalyzeRequest):
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
 
-        import asyncio
-
     resp = None
     last_error_text = ""
+
     for attempt in range(5):
         async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(
@@ -145,12 +143,13 @@ async def analyze_screen(req: AnalyzeRequest):
         if resp.status_code == 200:
             break
         last_error_text = resp.text[:500]
-        print(f"[Gemini 재시도 {attempt+1}/3] status={resp.status_code} body={last_error_text}")
+        print(f"[Gemini 재시도 {attempt + 1}/5] status={resp.status_code} body={last_error_text}")
         if resp.status_code in (429, 500, 502, 503):
             await asyncio.sleep(3 * (attempt + 1))
             continue
         else:
             break
+
     if resp is None or resp.status_code != 200:
         is_busy = resp is not None and resp.status_code == 429
         status = 429 if is_busy else 502

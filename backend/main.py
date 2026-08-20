@@ -123,7 +123,7 @@ async def analyze_screen(req: AnalyzeRequest):
 
     resp = None
     last_error_text = ""
-    for attempt in range(3):
+    for attempt in range(5):
         async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(
                 url,
@@ -147,7 +147,7 @@ async def analyze_screen(req: AnalyzeRequest):
         last_error_text = resp.text[:500]
         print(f"[Gemini 재시도 {attempt+1}/3] status={resp.status_code} body={last_error_text}")
         if resp.status_code in (429, 500, 502, 503):
-            await asyncio.sleep(2 * (attempt + 1))
+            await asyncio.sleep(3 * (attempt + 1))
             continue
         else:
             break
